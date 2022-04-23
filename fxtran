@@ -1,0 +1,62 @@
+
+#!/bin/bash
+green='\E[1;32m'
+wipe="\033[1m\033[0m"
+if [ ! $1 ]; then
+	echo "ERREUR : Arguments manquants"
+        exit 1
+fi
+if [ $1 == "configure" ]; then
+	name=$(basename "$PWD")
+	echo -e "$green<fxtran>$wipe $name projet detected. Include fxtran files..."
+	cp -r ~/.local/share/fxtran/include src/
+	echo -e "$green<fxtran>$wipe Adding sample main.f file..."
+	cp ~/.local/share/fxtran/main.f src/
+	rm src/main.c
+	echo -e "$green<fxtran>$wipe Changing CMakeLists.txt"
+	sed -i '14isrc/include/io.c' "CMakeLists.txt"
+	sed -i '15isrc/include/io.h' "CMakeLists.txt"
+	echo -e "$green<fxtran>$wipe Project configured ! Now you can build with fxtran build-fx or build-cg !"
+        exit 1
+fi
+filename="main"
+sed -i s/WAIT/"CALL getkey\(\)"/g "src/main.f" 
+echo -e "$green<fxtran>$wipe Compiling $1 with f2c..."
+conv=$(f2c "src/main.f" -dsrc 2>&1)
+if [[ "$conv" == *"Error"* ]]; then
+	echo $conv
+	exit 1
+fi
+if [[ "$conv" == *"Warning"* ]]; then
+	f2c "src/main.f" -dsrc
+fi
+sed -i s/"CALL getkey()"/WAIT/g "src/main.f"
+echo -e "$green<fxtran>$wipe Done."
+echo -e "$green<fxtran>$wipe Time to change little things into script..."
+echo -e "$green <log>$wipe Replace main function name..."
+sed -i s/MAIN__/main/g "src/$filename.c"
+echo -e "$green <log>$wipe Include gint and fxtran files..."
+sed -i s/f2c.h/'include\/f2c.h'/g "src/$filename.c"
+sed -i '14i#include "include/io.h"\n#include <gint/display.h>\n#include <gint/keyboard.h>' "src/$filename.c"
+echo -e "$green <log>$wipe Replace print function with some custom interesting things..."
+sed -i s/do_lio/printt/g "src/$filename.c"
+sed -i '/s_wsle/d' "src/$filename.c"
+sed -i '/e_wsle/d' "src/$filename.c"
+ligne=$(($(sed -n '/main(void)/=' "src/$filename.c")+2))
+echo -e "$green <log>$wipe Add some little functions..."
+sed -i "${ligne}i \ \ \ \ dclear(C_WHITE);" "src/$filename.c"
+sed -i 's/(char \*)\&//g' "src/$filename.c"
+nlignes=$(($(wc -l src/main.c | sed -e 's/[^0-9]//g')-3))
+sed -i "${nlignes}i \ \ \ \ getkey();" "src/$filename.c"
+echo -e "$green <log>$wipe Replace some syntax eccentricity..."
+sed -i '/static cilist io/d' "src/$filename.c"
+sed -i s/_\(\)/\(\)/g "src/$filename.c"
+echo -e "$green<fxtran>$wipe Done, finally build with the SDK..."
+if [ "$1" = "build-fx" ]; then
+	fxsdk build-fx
+fi
+if [ "$1" = "build-cg" ]; then
+        fxsdk build-cg
+fi
+rm src/main.c
+echo -e "$green <fxtran>$wipe Done ! :D"

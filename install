@@ -1,0 +1,15 @@
+green='\E[1;32m'
+wipe="\033[1m\033[0m"
+echo -e "$green<install>$wipe Updating apt..."
+sudo apt-get update
+echo -e "$green<install>$wipe Installing f2c..."
+sudo apt-get install f2c
+echo -e "$green<install>$wipe Installing fxtran..."
+if [ -d "~/.local/share/fxtran" ]; then
+mkdir ~/.local/share/fxtran
+mkdir ~/.local/share/fxtran/include
+fi
+cp -r include ~/.local/share/fxtran/include
+cp main.f ~/.local/share/fxtran
+cp fxtran /usr/bin
+echo -e "$green<install>$wipe Done ! :D"
